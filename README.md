@@ -143,10 +143,19 @@ VGA_Photobooth/
 │   ├── vga_controller.sv       # VGA 출력
 │   ├── UART_Interface_Top.sv / Send_Control.sv / Baud_Generator.sv / UART_TX.sv   # UART 전송
 │   └── button_debounce-38588bf9.sv / switch_sync.sv / reset_sync.sv / tick_gen.sv / result_auto_restart.sv   # 입력/타이밍 유틸리티
-├── images/                     # 설계 블록도 17장 (System/Cam_IF/Capture/Filter/Edit Engine/UART)
+├── images/                     # 설계 블록도 17장 + Trouble Shooting 슬라이드 2장
 └── docs/
     └── 2팀_4컷포토부스_발표자료.pptx   # 팀 발표자료 (슬라이드 대부분 이미지 기반)
 ```
+
+## 🔧 Trouble Shooting
+
+| 문제 상황 | 원인 분석 | 해결 방안 | 결과 |
+|---|---|---|---|
+| Vivado Timing Analysis 결과 **WNS -5.156ns, TNS -2616.955ns, Failing Endpoint 648개** 발생 (Timing constraints not met) | 화면 좌표를 메모리 주소로 변환하는 `mem_addr_gen`의 VGA 픽셀 주소 계산과 `mem_writer`의 Sticker·Color Picker Write 주소 계산 경로가 Critical Path로 분석됨. 좌표 변환과 곱셈·덧셈 연산이 한 사이클에 몰려 수행되면서 조합 논리 경로 지연이 누적 | 곱셈 계산 경로에 **파이프라인 레지스터 2단 삽입**: ① 다운스케일 적용된 x_pixel, y_pixel을 레지스터에 저장 → ② 저장된 좌표로 주소 계산(곱셈) 수행 후 결과를 다시 출력 레지스터에 저장하여 주소 계산 경로를 분리 | WNS **-5.156ns → +0.463ns**, TNS **-2616.955ns → 0ns**, Failing Endpoint **648개 → 0개**로 Timing Constraint 충족 |
+
+![Timing Trouble Shooting - Problem](images/troubleshooting_timing_problem.png)
+![Timing Trouble Shooting - Fix](images/troubleshooting_timing_fix.png)
 
 ## 🛠️ 설계 시 고려 사항
 
