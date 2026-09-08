@@ -28,7 +28,13 @@ FPGA 보드 위에서 카메라 입력부터 필터링, 스티커/낙서 편집,
 
 ## 🏗️ Architecture
 
-### 전체 데이터 흐름
+### 전체 시스템 블록도
+
+![System Block Diagram](images/system_diagram.png)
+
+> System Flow: ① Opening → ② Filter Select → ③ Photo Capture(4컷) → ④ Frame Select → ⑤ Sticker Mode → ⑥ Draw/Mosaic Mode → ⑦ Final Photo + QR. FPGA 내부는 BTN Debounce/SW Sync → System Controller → Capture&Filter → Edit Engine → UART 순으로 데이터가 흐르고, PC(Python UI) 쪽에서 진행 안내, FSM 상태 표시, 필터/프레임 선택, 이미지 표시·저장, QR코드 생성을 담당합니다. (PC측 Python UI 소스는 이 저장소에 포함되어 있지 않습니다.)
+
+### 전체 데이터 흐름 (모듈 단위)
 
 ```
 OV7670 카메라 (I2C 설정 top_setup / Cam_IF)
@@ -69,6 +75,8 @@ edit_engine
 
 ### 시스템 FSM (system_controller.sv)
 
+![System Controller FSM](images/system_controller_fsm.png)
+
 | 상태 | 설명 | 다음 상태 전이 조건 |
 |---|---|---|
 | `S_OPEN` | 대기 화면, 카메라 준비 대기 | 외부 버튼 입력 + 카메라 준비 완료 → SHOOT |
@@ -78,6 +86,47 @@ edit_engine
 | `S_DRAW` | 낙서 색상 선택(버튼R), 낙서 On/Off(버튼L), 모자이크 모드(스위치) | 외부 버튼 → FINAL_EXPORT |
 | `S_FINAL_EXPORT` | 최종 이미지 합성 및 UART 전송 | 이미지 전송 완료 + 상태 전송 완료 → RESULT |
 | `S_RESULT` | 결과 화면 표시 | 일정 시간 경과 또는 외부 버튼 → 자동 재시작(OPEN) |
+
+<details>
+<summary>System Controller 세부 다이어그램 더보기</summary>
+
+![System Controller Top](images/system_controller_top.png)
+![System Controller 모듈간 연결 신호](images/system_controller_signals.png)
+![Capture Timing Diagram](images/capture_timing_diagram.png)
+![Status 데이터 비트 필드](images/status_data_bitfield.png)
+
+</details>
+
+### 모듈별 블록도
+
+**카메라 인터페이스 (Cam_IF)** — OV7670 I2C 초기 설정(`top_setup`→`setup_fsm`→`I2C_Master_top`)과 프레임 캡처(`ov7670_mem_controller`)를 담당합니다.
+
+![Cam_IF Block Diagram](images/cam_if.png)
+
+**캡처 & 필터 (Capture_top)** — 다운스케일 → 필터 선택 → 4컷 캡처 제어까지의 파이프라인입니다.
+
+![Capture_top Block Diagram](images/capture_top.png)
+![Filter_top Block Diagram](images/filter_top.png)
+![Capture_Controller FSM](images/capture_controller_fsm.png)
+
+**편집 엔진 (Edit Engine)** — 프레임 메모리 R/W, 마커 기반 스티커 합성, VGA 출력, UART 전송을 위한 이미지 익스포트를 통합 관리합니다.
+
+![Edit Engine Block Diagram](images/edit_engine.png)
+![Marker Overlay Pixel Selection Logic](images/marker_overlay_logic.png)
+![Memory Writer Operation Flow](images/memory_writer_flow.png)
+![Image Export Operation Flow](images/image_export_flow.png)
+
+**UART 인터페이스** — 상태 데이터(32bit)와 최종 합성 이미지 픽셀을 순서대로 PC(Python)로 전송합니다.
+
+![UART Interface Block Diagram](images/uart_interface.png)
+
+<details>
+<summary>UART 상태 다이어그램(ASM) 더보기</summary>
+
+![UART ASM 1](images/uart_asm_1.png)
+![UART ASM 2](images/uart_asm_2.png)
+
+</details>
 
 ## 📁 폴더 구성
 
@@ -94,6 +143,7 @@ VGA_Photobooth/
 │   ├── vga_controller.sv       # VGA 출력
 │   ├── UART_Interface_Top.sv / Send_Control.sv / Baud_Generator.sv / UART_TX.sv   # UART 전송
 │   └── button_debounce-38588bf9.sv / switch_sync.sv / reset_sync.sv / tick_gen.sv / result_auto_restart.sv   # 입력/타이밍 유틸리티
+├── images/                     # 설계 블록도 17장 (System/Cam_IF/Capture/Filter/Edit Engine/UART)
 └── docs/
     └── 2팀_4컷포토부스_발표자료.pptx   # 팀 발표자료 (슬라이드 대부분 이미지 기반)
 ```
