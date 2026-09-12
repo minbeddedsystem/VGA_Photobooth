@@ -174,4 +174,4 @@ VGA_Photobooth/
 - Camera: OV7670 (I2C 제어, 320×240 캡처)
 - Display: VGA (640×480 @ 60Hz)
 - PC 연동: UART (Baud Rate 설정 가능, 기본 1Mbps)
-- 개발 보드: FPGA (Cyclone V 계열)
+- 개발 보드: FPGA (Basys3)
